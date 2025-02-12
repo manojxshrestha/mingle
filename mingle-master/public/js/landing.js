@@ -6,14 +6,47 @@ const esc = (x) => {
     p.appendChild(txt);
     return p.innerHTML;
 };
-let base = Math.floor(Math.random() * 50 + 30);
+
+// Initialize WebSocket for real-time updates
+const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+const ws = new WebSocket(`${protocol}//${window.location.host}`);
+
+// WebSocket connection handling
+ws.onopen = () => {
+    console.log('Connected to server');
+    // Request initial online count
+    ws.send(JSON.stringify({ channel: 'peopleOnline', data: null }));
+};
+
+ws.onerror = (error) => {
+    console.error('WebSocket error:', error);
+    // Fall back to polling on WebSocket error
+    getPeopleOnline();
+};
+
+ws.onclose = () => {
+    console.log('WebSocket connection closed');
+    // Fall back to polling when connection closes
+    getPeopleOnline();
+    // Try to reconnect after 5 seconds
+    setTimeout(() => {
+        window.location.reload();
+    }, 5000);
+};
+
+// Get base from localStorage instead of sessionStorage for persistence
+let base = localStorage.getItem("peopleOnline") 
+    ? +localStorage.getItem("peopleOnline") 
+    : Math.floor(Math.random() * 50 + 30);
+localStorage.setItem("peopleOnline", base);
+
 const noise = Math.floor(Math.random() * 10 - 5);
 let allTags = [];
 
-if (!sessionStorage.getItem("peopleOnline")) {
-    sessionStorage.setItem("peopleOnline", base);
+if (!localStorage.getItem("peopleOnline")) {
+    localStorage.setItem("peopleOnline", base);
 } else {
-    base = +sessionStorage.getItem("peopleOnline");
+    base = +localStorage.getItem("peopleOnline");
 }
 
 function updateURL(tags) {
@@ -90,16 +123,39 @@ function configureTags() {
 
 async function getPeopleOnline() {
     const $peopleOnline = $("#peopleOnline p span");
-    const res = await fetch("/online");
-    if (!res.ok) {
-        return console.error("Couldn't fetch GET /online");
+    try {
+        const res = await fetch("/online");
+        if (!res.ok) {
+            throw new Error("Couldn't fetch GET /online");
+        }
+        const { online } = await res.json();
+        const totalOnline = base + noise + +online;
+        $peopleOnline.innerHTML = totalOnline;
+        
+        // Update every 30 seconds if WebSocket is not connected
+        if (ws.readyState !== WebSocket.OPEN) {
+            setTimeout(getPeopleOnline, 30000);
+        }
+    } catch (error) {
+        console.error("Error fetching online count:", error);
+        setTimeout(getPeopleOnline, 5000); // Retry after 5 seconds if failed
     }
-    const { online } = await res.json();
-    console.log(online);
-
-    $peopleOnline.innerHTML = base + noise + +online;
 }
+
+// Listen for real-time updates
+ws.onmessage = (event) => {
+    try {
+        const { channel, data } = JSON.parse(event.data);
+        if (channel === 'peopleOnline') {
+            const $peopleOnline = $("#peopleOnline p span");
+            const totalOnline = base + noise + +data;
+            $peopleOnline.innerHTML = totalOnline;
+        }
+    } catch (error) {
+        console.error("Error processing WebSocket message:", error);
+    }
+};
 
 configureTags();
 window.addEventListener("load", initTagsFromURL);
-await getPeopleOnline();
+getPeopleOnline();
