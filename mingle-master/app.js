@@ -1,6 +1,7 @@
 import express from 'express'
 import { WebSocket, WebSocketServer } from 'ws'
 import db from './db/sqlite.js'
+import cors from 'cors'
 
 const SERVER_PORT = process.env.SERVER_PORT || 8080
 
@@ -48,6 +49,13 @@ WebSocket.prototype.propagate = function (channel, data) {
 
 const app = express()
 const port = SERVER_PORT
+
+// CORS configuration
+app.use(cors({
+  origin: 'https://your-render-domain.com', // Replace with your frontend domain
+  methods: ['GET', 'POST'],
+  credentials: true
+}))
 
 app.use(express.static('./public', { extensions: ['html'] }))
 
