@@ -8,8 +8,7 @@ const esc = (x) => {
 };
 
 // Initialize WebSocket for real-time updates
-const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-const ws = new WebSocket(`${protocol}//${window.location.host}`);
+const ws = new WebSocket(`wss://your-render-domain.com`);
 
 // WebSocket connection handling
 ws.onopen = () => {
