@@ -140,8 +140,28 @@ wss.on('connection', (ws, req) => {
 
   ws.init()
 
+  const broadcastOnlineCount = () => {
+    wss.clients.forEach((client) => {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(
+          JSON.stringify({
+            channel: 'peopleOnline',
+            data: wss.clients.size,
+          })
+        )
+      }
+    })
+  }
+
+  broadcastOnlineCount()
+
   ws.register('peopleOnline', () => {
-    ws.send(JSON.stringify({ channel: 'peopleOnline', data: wss.clients.size }))
+    ws.send(
+      JSON.stringify({
+        channel: 'peopleOnline',
+        data: wss.clients.size,
+      })
+    )
   })
 
   ws.register('match', async ({ data, interests }) => {
@@ -174,7 +194,9 @@ wss.on('connection', (ws, req) => {
     ws.peer = peer
     peer.peer = ws
 
-    ws.send(JSON.stringify({ channel: 'connected', data: commonInterests }))
+    ws.send(
+      JSON.stringify({ channel: 'connected', data: commonInterests })
+    )
     ws.peer.send(
       JSON.stringify({ channel: 'connected', data: commonInterests })
     )
@@ -200,5 +222,6 @@ wss.on('connection', (ws, req) => {
     }
     if (!ws.interestUserMap || !ws.userInterestMap) return
     deleteUser(ws, ws.interestUserMap, ws.userInterestMap)
+    broadcastOnlineCount()
   })
 })
